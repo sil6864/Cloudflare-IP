@@ -51,3 +51,11 @@ ip_geo_api: "http://ip-api.com/json/{ip}"   # IP归属地API模板，{ip}会被�
 auto_detect: true       # 是否自动检测页面类型，设为false则必须显式指定page_type
 xpath_support: true     # 是否支持XPath选择器（除CSS选择器外）
 follow_redirects: true  # 是否跟随页面重定向 
+
+
+telegram_notification:
+  enabled: true # 是否启用Telegram通知 (true/false)
+  # 可选：自定义成功消息模板
+  success_message_template: "✅ Cloudflare IP抓取成功！\n共抓取到 *{ip_count}* 个IP。\n文件已保存至：`{output_file}`"
+  # 可选：自定义失败消息模板
+  failure_message_template: "❌ Cloudflare IP抓取失败！\n错误信息：`{error_message}`"
