@@ -14,7 +14,6 @@ import re
 import logging
 import argparse
 import time
-import datetime
 from typing import List, Set, Optional, Dict, Any, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import ipaddress  # 用于支持CIDR格式网段判断
@@ -1307,11 +1306,9 @@ def main() -> None:
         if telegram_bot_token and telegram_chat_id:
             notification_message = (
                 f"✅ Cloudflare 优选IP抓取完成！\n\n"
-                f"📊 **总计唯一IP**: {len(final_all_ips)} 个\n"
+                f"📊 **IP数量**: {len(final_all_ips)} 个\n"
                 f"🗑️ **排除IP**: {excluded_count} 个\n"
                 f"💾 **保存至**: `{output}`\n"
-                f"⏰ **完成时间**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-                f"详情请查看日志文件。"
             )
             send_telegram_notification(notification_message, telegram_bot_token, telegram_chat_id)
         else:
