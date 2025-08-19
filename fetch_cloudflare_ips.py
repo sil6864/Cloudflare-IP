@@ -5,6 +5,7 @@ Cloudflare 优选IP自动抓取脚本
 - 支持静态/动态网页抓取，自动去重、排序、地区过滤、排除等功能
 - 配置灵活，支持多数据源、CSS选择器、IP数量限制、地区API等
 - 日志详细，异常处理健壮，兼容多平台
+- 新增IP有效性验证，过滤无效地址
 """
 
 # ===== 标准库导入 =====
@@ -138,6 +139,15 @@ def setup_logging(log_file: str, log_level: str = 'INFO') -> None:
     )
 
 # ---------------- 工具函数 ----------------
+# ===== 新增：验证IPv4地址有效性 =====
+def is_valid_ipv4(ip_str: str) -> bool:
+    """检查是否为有效的IPv4地址"""
+    try:
+        ipaddress.IPv4Address(ip_str)
+        return True
+    except ipaddress.AddressValueError:
+        return False
+
 def extract_ips(text: str, pattern: str) -> List[str]:
     """
     从文本中提取所有IP地址，并保持原始顺序。
@@ -146,7 +156,13 @@ def extract_ips(text: str, pattern: str) -> List[str]:
     :return: IP列表 (按找到的顺序)
     """
     # 使用正则表达式提取所有IP，顺序与原文一致
-    return re.findall(pattern, text)
+    raw_ips = re.findall(pattern, text)
+    # 过滤无效IP地址 (如64.110.104.301)
+    valid_ips = [ip for ip in raw_ips if is_valid_ipv4(ip)]
+    invalid_count = len(raw_ips) - len(valid_ips)
+    if invalid_count > 0:
+        logging.warning(f"[VALIDATION] 发现 {invalid_count} 个无效IP地址已被过滤")
+    return valid_ips
 
 def save_ips(ip_list: List[str], filename: str) -> None:
     """
@@ -193,7 +209,7 @@ def extract_ips_from_html(html: str, pattern: str, selector: Optional[str] = Non
         if selected:
             ip_list = []
             for elem in selected:
-                ip_list.extend(re.findall(pattern, elem.get_text()))
+                ip_list.extend(extract_ips(elem.get_text(), pattern))
             if ip_list:
                 logging.info(f"[EXTRACT] 使用selector '{selector}' 提取到{len(ip_list)}个IP")
                 return list(dict.fromkeys(ip_list))
@@ -202,7 +218,7 @@ def extract_ips_from_html(html: str, pattern: str, selector: Optional[str] = Non
     for tag in ['pre', 'code', 'table', 'div', 'section', 'article']:
         for elem in soup.find_all(tag):
             text = elem.get_text()
-            ips = re.findall(pattern, text)
+            ips = extract_ips(text, pattern)
             if len(ips) >= MIN_IP_BLOCK:
                 candidates.append((len(ips), ips))
     if candidates:
@@ -212,7 +228,7 @@ def extract_ips_from_html(html: str, pattern: str, selector: Optional[str] = Non
         return list(dict.fromkeys(ip_list))
     # 3. 全局遍历
     all_text = soup.get_text()
-    ip_list = re.findall(pattern, all_text)
+    ip_list = extract_ips(all_text, pattern)
     logging.info(f"[EXTRACT] 全局遍历提取到{len(ip_list)}个IP")
     return list(dict.fromkeys(ip_list))
 
@@ -551,7 +567,7 @@ def playwright_dynamic_fetch_worker(args: tuple) -> tuple:
                         page.wait_for_selector(selector, timeout=20000)
                         elems = page.query_selector_all(selector)
                         for elem in elems:
-                            ip_list.extend(re.findall(pattern, elem.inner_text()))
+                            ip_list.extend(extract_ips(elem.inner_text(), pattern))
                         logging.info(f"[EXTRACT] 使用selector '{selector}' 提取到{len(ip_list)}个IP")
                         selector_success = len(ip_list) > 0
                     except Exception:
@@ -560,13 +576,13 @@ def playwright_dynamic_fetch_worker(args: tuple) -> tuple:
                     # 遍历table、div等常见结构，补充全局遍历
                     for row in page.query_selector_all('table tr'):
                         for cell in row.query_selector_all('td'):
-                            ip_list.extend(re.findall(pattern, cell.inner_text()))
+                            ip_list.extend(extract_ips(cell.inner_text(), pattern))
                     logging.info(f"[EXTRACT] table遍历提取到{len(ip_list)}个IP")
                     for elem in page.query_selector_all('div'):
-                        ip_list.extend(re.findall(pattern, elem.inner_text()))
+                        ip_list.extend(extract_ips(elem.inner_text(), pattern))
                     logging.info(f"[EXTRACT] div遍历提取到{len(ip_list)}个IP")
                     all_text = page.content()
-                    ip_list.extend(re.findall(pattern, all_text))
+                    ip_list.extend(extract_ips(all_text, pattern))
                     logging.info(f"[EXTRACT] 全局遍历提取到{len(ip_list)}个IP")
                 result_ips = ip_list
                 logging.info(f"[DEBUG] {url} 动态抓取前10个IP: {result_ips[:10]}")
@@ -703,14 +719,14 @@ def extract_ips_from_api(response_text: str, pattern: str, json_path: Optional[s
             
             # 如果是字符串，可能是逗号分隔的IP列表
             elif isinstance(data, str):
-                ip_list = re.findall(pattern, data)
+                ip_list = extract_ips(data, pattern)
                 if ip_list:
                     logging.info(f"[API] 从JSON路径 {json_path} 提取到 {len(ip_list)} 个IP")
                     return ip_list
         
         # 如果没有指定JSON路径或者指定路径提取失败，尝试智能提取
         # 1. 尝试在整个JSON字符串中直接提取IP
-        ip_list = re.findall(pattern, response_text)
+        ip_list = extract_ips(response_text, pattern)
         if ip_list:
             logging.info(f"[API] 从整个JSON响应中提取到 {len(ip_list)} 个IP")
             return ip_list
@@ -742,7 +758,7 @@ def extract_ips_from_api(response_text: str, pattern: str, json_path: Optional[s
     except json.JSONDecodeError:
         # 如果不是有效JSON，尝试直接用正则提取IP
         logging.warning("[API] API响应解析JSON失败，尝试直接正则提取IP")
-        ip_list = re.findall(pattern, response_text)
+        ip_list = extract_ips(response_text, pattern)
         if ip_list:
             logging.info(f"[API] 从非JSON响应中提取到 {len(ip_list)} 个IP")
             return ip_list
@@ -751,7 +767,6 @@ def extract_ips_from_api(response_text: str, pattern: str, json_path: Optional[s
         logging.error(f"[API] 提取IP异常: {e}")
         return []
 
-# ===== 新增：从表格中提取IP =====
 def extract_ips_from_table(html: str, pattern: str, selector: Optional[str] = None) -> List[str]:
     """
     专门从表格结构中提取IP，处理各种表格格式。
@@ -781,7 +796,7 @@ def extract_ips_from_table(html: str, pattern: str, selector: Optional[str] = No
                         process_table_row(elem, ip_list, pattern)
                     else:
                         # 直接从元素文本中提取
-                        ips = re.findall(pattern, elem.get_text())
+                        ips = extract_ips(elem.get_text(), pattern)
                         ip_list.extend(ips)
             
             if ip_list:
@@ -808,14 +823,14 @@ def extract_ips_from_table(html: str, pattern: str, selector: Optional[str] = No
     list_elements = soup.find_all('ul')
     for ul in list_elements:
         for li in ul.find_all('li'):
-            ip_list.extend(re.findall(pattern, li.get_text()))
+            ip_list.extend(extract_ips(li.get_text(), pattern))
     
     if ip_list:
         logging.info(f"[TABLE] 从列表中提取到IP，共{len(ip_list)}个")
         return list(dict.fromkeys(ip_list))
     
     # 4. 最后尝试全局提取
-    ip_list = re.findall(pattern, html)
+    ip_list = extract_ips(html, pattern)
     logging.info(f"[TABLE] 全局提取到IP，共{len(ip_list)}个")
     return list(dict.fromkeys(ip_list))
 
@@ -853,13 +868,13 @@ def process_table_row(row, ip_list, pattern):
     priority_cells = row.select('td.recommended, td.preferred, td.best, td.optimal, td.fast')
     if priority_cells:
         for cell in priority_cells:
-            ip_list.extend(re.findall(pattern, cell.get_text()))
+            ip_list.extend(extract_ips(cell.get_text(), pattern))
         if ip_list:  # 如果已找到IP则返回
             return
     
     # 处理所有单元格
     for cell in row.find_all(['td', 'th']):
-        ip_list.extend(re.findall(pattern, cell.get_text()))
+        ip_list.extend(extract_ips(cell.get_text(), pattern))
 
 # ===== 新增：增强的动态页面处理 =====
 def perform_page_actions(page: Page, actions: List[Dict[str, Any]]) -> None:
@@ -1253,4 +1268,4 @@ def main() -> None:
 
 # ===== 主流程入口 =====
 if __name__ == '__main__':
-    main() 
+    main()
