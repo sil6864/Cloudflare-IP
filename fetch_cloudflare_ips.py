@@ -14,6 +14,7 @@ import re
 import logging
 import argparse
 import time
+import datetime
 from typing import List, Set, Optional, Dict, Any, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import ipaddress  # 用于支持CIDR格式网段判断
@@ -117,6 +118,8 @@ def load_config(config_path: str = 'config.yaml') -> Dict[str, Any]:
                 config['xpath_support'] = False
             if 'follow_redirects' not in config:
                 config['follow_redirects'] = True
+            if 'enable_telegram_notification' not in config:
+                config['enable_telegram_notification'] = False
             return config
     except Exception as e:
         raise RuntimeError(f"读取配置文件失败: {e}")
@@ -543,6 +546,36 @@ def filter_ips_by_region(ip_list: List[str], allowed_regions: List[str], api_tem
         else:
             logging.info(f"[REGION] 过滤掉IP: {ip}，归属地: {region if region else '未知'}")
     return filtered
+
+
+# ---------------- 新增：Telegram 通知功能 ----------------
+def send_telegram_notification(message: str, bot_token: str, chat_id: str) -> bool:
+    """
+    发送Telegram通知消息。
+    :param message: 要发送的消息内容
+    :param bot_token: Telegram Bot Token
+    :param chat_id: Telegram Chat ID
+    :return: True表示发送成功，False表示失败
+    """
+    if not bot_token or not chat_id:
+        logging.warning("Telegram BOT_TOKEN 或 CHAT_ID 未设置，跳过通知。")
+        return False
+    
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown" # 支持Markdown格式，如粗体、斜体
+    }
+    try:
+        response = requests.post(url, json=payload, timeout=10) # 设置请求超时
+        response.raise_for_status() # 如果状态码不是200，则抛出HTTPError
+        logging.info("Telegram通知发送成功。")
+        return True
+    except requests.exceptions.RequestException as e:
+        logging.error(f"发送Telegram通知失败: {e}")
+        return False
+
 
 def playwright_dynamic_fetch_worker(args: tuple) -> tuple:
     """
@@ -1265,6 +1298,25 @@ def main() -> None:
 
     save_ips(final_all_ips, output)
     logging.info(f"最终合并了 {len(url_ips_map)} 个URL的IP，排除了 {excluded_count} 个IP，共 {len(final_all_ips)} 个唯一IP")
+
+    if enable_telegram_notification:
+        telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
+
+        if telegram_bot_token and telegram_chat_id:
+            notification_message = (
+                f"✅ Cloudflare 优选IP抓取完成！\n\n"
+                f"📊 **总计唯一IP**: {len(final_all_ips)} 个\n"
+                f"🗑️ **排除IP**: {excluded_count} 个\n"
+                f"💾 **保存至**: `{output}`\n"
+                f"⏰ **完成时间**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                f"详情请查看日志文件。"
+            )
+            send_telegram_notification(notification_message, telegram_bot_token, telegram_chat_id)
+        else:
+            logging.warning("Telegram通知已启用，但未找到 TELEGRAM_BOT_TOKEN 或 TELEGRAM_CHAT_ID 环境变量。请检查GitHub Secrets配置。")
+    else:
+        logging.info("Telegram通知未启用。")
 
 # ===== 主流程入口 =====
 if __name__ == '__main__':
