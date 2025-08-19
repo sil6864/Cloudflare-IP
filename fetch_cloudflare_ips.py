@@ -1165,6 +1165,7 @@ def main() -> None:
     auto_detect = config.get('auto_detect', True)
     xpath_support = config.get('xpath_support', False)
     follow_redirects = config.get('follow_redirects', True)
+    enable_telegram_notification = config.get('enable_telegram_notification', False)
 
     setup_logging(log_file, log_level)
     logging.info(f"开始执行Cloudflare IP抓取，自动检测: {auto_detect}, XPath支持: {xpath_support}")
