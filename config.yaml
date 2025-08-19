@@ -8,9 +8,9 @@ sources:  # 需要抓取的IP数据源列表。每项可为：
   #   extra_headers: 可选，额外请求头
   #   wait_time: 可选，动态页面等待时间(ms)，默认5000ms
   #   actions: 可选，动态页面交互操作列表
-  - url: https://monitor.gacjie.cn/page/cloudflare/ipv4.html
-    selector: 'tbody'     # 优先提取tbody标签内的IP
-    page_type: 'table'    # 表格类型页面
+  #- url: https://monitor.gacjie.cn/page/cloudflare/ipv4.html
+  #  selector: 'tbody'     # 优先提取tbody标签内的IP
+  #  page_type: 'table'    # 表格类型页面
   - url: https://ip.164746.xyz
     selector: 'td.recommended'        # 优先提取td.recommended标签内的IP
     page_type: 'static'    # 静态页面
@@ -28,7 +28,7 @@ sources:  # 需要抓取的IP数据源列表。每项可为：
   - url: https://stock.hostmonit.com/CloudFlareYes
     # 未指定page_type则自动智能识别
   - url: https://ipdb.030101.xyz/bestcfv4
-    page_type: 'api'        # API类型页面，直接解析JSON
+    page_type: 'static'        # API类型页面，直接解析JSON
     response_format: 'json'  # 响应格式
     json_path: 'data.ips'    # JSON路径，用于提取IP列表
 pattern: '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'   # 匹配IP的正则表达式
