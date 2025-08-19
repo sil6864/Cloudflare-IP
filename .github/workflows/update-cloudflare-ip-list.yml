@@ -44,3 +44,8 @@ jobs:
           git commit -m "Auto update Cloudflare IPs"
           git push
         fi
+    - name: Run IP fetch script
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: python fetch_cloudflare_ips.py
