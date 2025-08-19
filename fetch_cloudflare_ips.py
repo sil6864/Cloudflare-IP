@@ -1301,8 +1301,8 @@ def main() -> None:
     logging.info(f"最终合并了 {len(url_ips_map)} 个URL的IP，排除了 {excluded_count} 个IP，共 {len(final_all_ips)} 个唯一IP")
 
     if enable_telegram_notification:
-        telegram_bot_token = ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        telegram_chat_id = ${{ secrets.TELEGRAM_CHAT_ID }}
+        telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
         if telegram_bot_token and telegram_chat_id:
             notification_message = (
