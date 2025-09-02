@@ -13,32 +13,32 @@ sources:  # 需要抓取的IP数据源列表。每项可为：
   #  page_type: 'table'    # 表格类型页面
   - url: https://ip.164746.xyz
     selector: 'td.recommended'        # 优先提取td.recommended标签内的IP
-    page_type: 'static'    # 静态页面
+    page_type: 'static'    # 静态页面，日志显示抓取成功，无需修改
   - url: https://www.nslookup.io/domains/bpb.yousef.isegaro.com/dns-records/#cloudflare
     selector: 'tr.group'        # 优先提取tr.group标签内的IP
     page_type: 'dynamic'    # 动态页面
-    wait_time: 8000         # 等待8秒加载完成
+    wait_time: 8000         # 等待8秒加载完成，日志显示抓取成功，无需修改
   - url: https://cf.090227.xyz
     page_type: 'dynamic'    # 动态页面
+    wait_time: 15000        # **优化：增加页面整体等待时间，给刷新按钮更多加载机会**
     actions:                # 动态页面交互操作
       - type: 'click'
         selector: '.refresh-btn'
       - type: 'wait'
         time: 3000
   - url: https://stock.hostmonit.com/CloudFlareYes
-    # 未指定page_type则自动智能识别
+    # 未指定page_type则自动智能识别，日志显示自动降级动态抓取成功，无需修改
   - url: https://ipdb.030101.xyz/bestcfv4
-    page_type: 'static'        # API类型页面，直接解析JSON
-    response_format: 'json'  # 响应格式
-    json_path: 'data.ips'    # JSON路径，用于提取IP列表
+    wait_time: 15000
 
 #自添加
   - url: https://bestip.badking.pp.ua/
-    # 未指定page_type则自动智能识别
+    # 未指定page_type则自动智能识别，日志显示自动检测为表格并抓取成功，无需修改
     
 #聚合API
   - url: https://raw.githubusercontent.com/Eleven1985/proxy_ip/refs/heads/main/cf_ips.txt
     page_type: api
+
 
 
     
@@ -50,7 +50,7 @@ max_workers: 4           # 并发线程数，控制静态抓取并发量
 log_level: "INFO"        # 日志等级（DEBUG/INFO/WARNING/ERROR）
 js_retry: 3              # JS动态抓取最大重试次数
 js_retry_interval: 2.0   # JS动态抓取重试间隔（秒） 
-max_ips_per_url: 10      # 每个URL最多保留多少个IP（0表示不限制）
+max_ips_per_url: 20       # 每个URL的IP数量
 per_url_limit_mode: "top"  # 超出限制时的筛选模式: random-随机保留, top-保留页面靠前的
 exclude_ips:          # 排除IP列表，支持单个IP和CIDR格式网段
   - "127.0.0.1"        # 排除单个IP，精确匹配
