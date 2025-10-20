@@ -41,7 +41,7 @@ except ImportError:
     print("未检测到 PyYAML，请先运行 pip install pyyaml")
 
 # ===== 常量定义 =====
-USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+USER_AGENT: str = "Mozilla/50 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
 DEFAULT_JS_TIMEOUT: int = 30000
 DEFAULT_WAIT_TIMEOUT: int = 5000
 MIN_IP_BLOCK: int = 3
@@ -341,7 +341,7 @@ async def fetch_ip_static_async(url: str, pattern: str, timeout: int, session: a
     :return: (url, IP列表 (有序且唯一), 是否成功)
     """
     try:
-        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        user_agent = "Mozilla/50 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
         headers = {"User-Agent": user_agent}
         async with session.get(url, timeout=timeout, headers=headers) as response:
             if response.status != 200:
@@ -596,7 +596,7 @@ def playwright_dynamic_fetch_worker(args: tuple) -> tuple:
                 selector_success = False
                 if selector:
                     try:
-                        page.wait_for_selector(selector, timeout=20000)
+                        page.wait_for_selector(selector, state='visible', timeout=20000)
                         elems = page.query_selector_all(selector)
                         for elem in elems:
                             ip_list.extend(extract_ips(elem.inner_text(), pattern))
@@ -1270,6 +1270,10 @@ def main() -> None:
     is_excluded_func = build_ip_exclude_checker(exclude_ips_config)
     excluded_count = 0
 
+    # --- 新增：用于存储每个URL的可用IP数量详情 ---
+    per_url_notification_details: List[str] = []
+    # --- 结束新增 ---
+
     merged_ips = []
     for url, ips_list_for_url in url_ips_map.items():
         original_count_before_exclude = len(ips_list_for_url)
@@ -1278,6 +1282,11 @@ def main() -> None:
         if excluded_in_source > 0:
             logging.info(f"[EXCLUDE] URL {url} 排除了 {excluded_in_source} 个IP，保留 {len(retained_ips)} 个IP")
         excluded_count += excluded_in_source
+        
+        # --- 新增：将当前URL的可用IP数量添加到详情列表 ---
+        per_url_notification_details.append(f"  - `{url}`: {len(retained_ips)} 个")
+        # --- 结束新增 ---
+
         logging.info(f"URL {url} 贡献了 {len(retained_ips)} 个IP")
         # 新增：日志输出每个URL最终筛选出来的IP（前20个）
         if len(retained_ips) > 20:
@@ -1304,11 +1313,19 @@ def main() -> None:
         telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
         if telegram_bot_token and telegram_chat_id:
+            # --- 新增：构建各来源IP数量的字符串 ---
+            per_url_details_str = "\n".join(per_url_notification_details)
+            if not per_url_details_str:
+                per_url_details_str = "  - 无可用IP来源"
+            # --- 结束新增 ---
+
             notification_message = (
                 f"✅ Cloudflare 优选IP抓取完成！\n\n"
-                f"📊 **IP数量**: {len(final_all_ips)} 个\n"
-                f"🗑️ **排除IP**: {excluded_count} 个\n"
-                f"💾 **保存至**: `{output}`\n"
+                f"📊 **总IP数量**: {len(final_all_ips)} 个\n" # 将 "IP数量" 改为 "总IP数量" 以区分
+                f"🗑️ **总排除IP**: {excluded_count} 个\n" # 将 "排除IP" 改为 "总排除IP" 以区分
+                f"💾 **保存至**: `{output}`\n\n"
+                f"🌐 **各来源可用IP数量**:\n" # 新增标题
+                f"{per_url_details_str}\n" # 插入各来源IP数量详情
             )
             send_telegram_notification(notification_message, telegram_bot_token, telegram_chat_id)
         else:
