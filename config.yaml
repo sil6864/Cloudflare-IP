@@ -35,7 +35,8 @@ sources:  # 需要抓取的IP数据源列表。每项可为：
   - url: https://bestip.badking.pp.ua/bestipv4
 
   - url: https://www.wetest.vip/page/cloudflare/address_v4.html
-    
+
+
 #聚合API
 #  - url: https://raw.githubusercontent.com/Eleven1985/proxy_ip/refs/heads/main/cf_ips.txt
 #    page_type: api
