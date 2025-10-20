@@ -32,12 +32,13 @@ sources:  # 需要抓取的IP数据源列表。每项可为：
     wait_time: 15000
 
 #自添加
-  - url: https://bestip.badking.pp.ua/
-    # 未指定page_type则自动智能识别，日志显示自动检测为表格并抓取成功，无需修改
+  - url: https://bestip.badking.pp.ua/bestipv4
+
+  - url: https://www.wetest.vip/page/cloudflare/address_v4.html
     
 #聚合API
-  - url: https://raw.githubusercontent.com/Eleven1985/proxy_ip/refs/heads/main/cf_ips.txt
-    page_type: api
+#  - url: https://raw.githubusercontent.com/Eleven1985/proxy_ip/refs/heads/main/cf_ips.txt
+#    page_type: api
 
 
 
